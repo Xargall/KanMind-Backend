@@ -206,3 +206,36 @@ class BoardUpdateTests(APITestCase):
         response = self.client.patch(self.url, {"members": [999999]}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BoardDeleteTests(APITestCase):
+    """Tests for DELETE /api/boards/{board_id}/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner4@example.com", password="pass123", fullname="Owner4"
+        )
+        self.member = User.objects.create_user(
+            email="member4@example.com", password="pass123", fullname="Member4"
+        )
+
+        self.board = Board.objects.create(title="To Delete", owner=self.owner)
+        self.board.members.add(self.member)
+
+        self.url = reverse("board-detail", kwargs={"board_id": self.board.id})
+
+    def test_owner_can_delete_board(self):
+        """The owner can delete their own board."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Board.objects.filter(id=self.board.id).exists())
+
+    def test_member_cannot_delete_board(self):
+        """A member (non-owner) is forbidden from deleting the board."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Board.objects.filter(id=self.board.id).exists())

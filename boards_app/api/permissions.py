@@ -18,3 +18,12 @@ class IsBoardMemberOrOwner(BasePermission):
         return (
             obj.owner == request.user or obj.members.filter(id=request.user.id).exists()
         )
+
+
+class IsBoardOwner(BasePermission):
+    """Allows access only to a board's owner (not members)."""
+
+    message = "You must be the owner of this board to perform this action."
+
+    def has_object_permission(self, request, view, obj):
+        return obj.owner == request.user

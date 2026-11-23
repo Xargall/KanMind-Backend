@@ -17,9 +17,9 @@ from .serializers import (
     BoardListSerializer,
     BoardCreateSerializer,
     BoardDetailSerializer,
-    BoardUpdateSerializer
+    BoardUpdateSerializer,
 )
-from .permissions import IsBoardMemberOrOwner
+from .permissions import IsBoardMemberOrOwner, IsBoardOwner
 
 
 class BoardListCreateView(generics.ListCreateAPIView):
@@ -48,12 +48,12 @@ class BoardListCreateView(generics.ListCreateAPIView):
 class BoardDetailView(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
     generics.GenericAPIView,
 ):
-    """Handles GET (detail) and PATCH (update title/members) for /api/boards/{board_id}/."""
+    """Handles GET (detail), PATCH (update), and DELETE (owner only) for /api/boards/{board_id}/."""
 
     queryset = Board.objects.all()
-    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
     lookup_url_kwarg = "board_id"
 
     def get_serializer_class(self):
@@ -61,8 +61,16 @@ class BoardDetailView(
             return BoardUpdateSerializer
         return BoardDetailSerializer
 
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [IsAuthenticated(), IsBoardOwner()]
+        return [IsAuthenticated(), IsBoardMemberOrOwner()]
+
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
