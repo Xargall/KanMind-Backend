@@ -6,14 +6,19 @@ Views for the registration endpoint.
 """
 
 # Third party
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.contrib.auth import get_user_model
 
 # Local
 
-from .serializers import RegistrationSerializer, LoginSerializer
+from .serializers import RegistrationSerializer, LoginSerializer, PublicUserSerializer
+
+User = get_user_model()
 
 
 class RegistrationView(generics.CreateAPIView):
@@ -58,3 +63,37 @@ class LoginView(generics.GenericAPIView):
             "user_id": user.id,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class EmailCheckView(generics.GenericAPIView):
+    """Checks whether a user with the given email exists."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PublicUserSerializer
+
+    def get(self, request):
+        email = request.query_params.get("email")
+        if not email:
+            return Response(
+                {"detail": "Email query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {"detail": "Invalid email format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "No user found with this email."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

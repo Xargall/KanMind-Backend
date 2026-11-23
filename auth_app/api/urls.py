@@ -9,9 +9,10 @@ URL routes for the auth_app API endpoints.
 from django.urls import path
 
 # Local
-from .views import RegistrationView, LoginView
+from .views import RegistrationView, LoginView, EmailCheckView
 
 urlpatterns = [
     path("registration/", RegistrationView.as_view(), name="registration"),
     path("login/", LoginView.as_view(), name="login"),
+    path("email-check/", EmailCheckView.as_view(), name="email-check"),
 ]

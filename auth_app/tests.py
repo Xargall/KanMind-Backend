@@ -128,3 +128,52 @@ class UserManagerTests(TestCase):
             email="x@example.com", password="pass", fullname="X Y"
         )
         self.assertEqual(str(user), "X Y")
+
+
+class EmailCheckTests(APITestCase):
+    """Tests for GET /api/email-check/."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="existing@example.com", password="pass123", fullname="Existing User"
+        )
+        self.requester = User.objects.create_user(
+            email="requester@example.com", password="pass123", fullname="Requester"
+        )
+        self.url = reverse("email-check")
+
+    def test_unauthenticated_request_is_rejected(self):
+        """Without a token, the request is rejected with 401."""
+        response = self.client.get(self.url, {"email": "existing@example.com"})
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_missing_email_param_returns_400(self):
+        """Without the email query parameter, the request returns 400."""
+        self.client.force_authenticate(user=self.requester)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_email_format_returns_400(self):
+        """An invalid email format returns 400."""
+        self.client.force_authenticate(user=self.requester)
+        response = self.client.get(self.url, {"email": "not-an-email"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unknown_email_returns_404(self):
+        """An email with no matching user returns 404."""
+        self.client.force_authenticate(user=self.requester)
+        response = self.client.get(self.url, {"email": "nobody@example.com"})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_existing_email_returns_user_data(self):
+        """An email with a matching user returns that user's public data."""
+        self.client.force_authenticate(user=self.requester)
+        response = self.client.get(self.url, {"email": "existing@example.com"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], "existing@example.com")
+        self.assertEqual(response.data["fullname"], "Existing User")
