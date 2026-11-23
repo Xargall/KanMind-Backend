@@ -13,7 +13,12 @@ from rest_framework.response import Response
 
 # Local
 from ..models import Board
-from .serializers import BoardListSerializer, BoardCreateSerializer
+from .serializers import (
+    BoardListSerializer,
+    BoardCreateSerializer,
+    BoardDetailSerializer,
+)
+from .permissions import IsBoardMemberOrOwner
 
 
 class BoardListCreateView(generics.ListCreateAPIView):
@@ -37,3 +42,12 @@ class BoardListCreateView(generics.ListCreateAPIView):
 
         output_serializer = BoardListSerializer(board)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class BoardDetailView(generics.RetrieveAPIView):
+    """Handles GET /api/boards/{board_id}/ — board info (incl. members) plus its tasks."""
+
+    queryset = Board.objects.all()
+    serializer_class = BoardDetailSerializer
+    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
+    lookup_url_kwarg = "board_id"

@@ -11,6 +11,7 @@ from rest_framework import serializers
 
 # Local
 from ..models import Board
+from auth_app.api.serializers import PublicUserSerializer
 
 User = get_user_model()
 
@@ -68,3 +69,18 @@ class BoardCreateSerializer(serializers.ModelSerializer):
         if members:
             board.members.set(members)
         return board
+
+
+class BoardDetailSerializer(serializers.ModelSerializer):
+    """Serializes a single board with nested members and its tasks (GET /api/boards/{board_id}/)."""
+
+    owner_id = serializers.IntegerField(read_only=True)
+    members = PublicUserSerializer(many=True, read_only=True)
+    tasks = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Board
+        fields = ["id", "title", "owner_id", "members", "tasks"]
+
+    def get_tasks(self, obj):
+        return []

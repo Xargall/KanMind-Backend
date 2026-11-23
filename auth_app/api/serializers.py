@@ -54,3 +54,11 @@ class LoginSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Minimal, read-only user representation used in nested contexts (board members, task assignee/reviewer)."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "fullname"]

@@ -83,3 +83,59 @@ class BoardListCreateTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["member_count"], 1)
+
+
+class BoardDetailTests(APITestCase):
+    """Tests for GET /api/boards/{board_id}/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner2@example.com", password="pass123", fullname="Owner2"
+        )
+        self.member = User.objects.create_user(
+            email="member2@example.com", password="pass123", fullname="Member2"
+        )
+        self.outsider = User.objects.create_user(
+            email="outsider2@example.com", password="pass123", fullname="Outsider2"
+        )
+
+        self.board = Board.objects.create(title="Detail Board", owner=self.owner)
+        self.board.members.add(self.member)
+
+        self.url = reverse("board-detail", kwargs={"board_id": self.board.id})
+
+    def test_owner_can_view_board_detail(self):
+        """The board's owner can retrieve its details."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.board.id)
+        self.assertEqual(len(response.data["members"]), 1)
+
+    def test_member_can_view_board_detail(self):
+        """A board member (not the owner) can also retrieve its details."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_outsider_gets_403(self):
+        """A user with no relation to the board is forbidden, not just filtered out."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_nonexistent_board_gets_404(self):
+        """A board ID that doesn't exist at all returns 404, not 403."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("board-detail", kwargs={"board_id": 999999})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unauthenticated_gets_401(self):
+        """Anonymous requests are rejected before the permission check even runs."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
