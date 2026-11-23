@@ -6,7 +6,7 @@ Serializers for the registration endpoint.
 """
 
 # Third party
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from rest_framework import serializers
 
 User = get_user_model()
@@ -34,3 +34,23 @@ class RegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         user = User.objects.create_user(password=password, **validated_data)
         return user
+
+
+class LoginSerializer(serializers.Serializer):
+    """Validates login credentials and attaches the authenticated user."""
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = authenticate(
+            request=self.context.get("request"),
+            email=attrs["email"],
+            password=attrs["password"],
+        )
+
+        if user is None:
+            raise serializers.ValidationError("Invalid email or password")
+
+        attrs["user"] = user
+        return attrs
