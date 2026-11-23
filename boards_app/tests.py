@@ -139,3 +139,70 @@ class BoardDetailTests(APITestCase):
         """Anonymous requests are rejected before the permission check even runs."""
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class BoardUpdateTests(APITestCase):
+    """Tests for PATCH /api/boards/{board_id}/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner3@example.com", password="pass123", fullname="Owner3"
+        )
+        self.member = User.objects.create_user(
+            email="member3@example.com", password="pass123", fullname="Member3"
+        )
+        self.outsider = User.objects.create_user(
+            email="outsider3@example.com", password="pass123", fullname="Outsider3"
+        )
+
+        self.board = Board.objects.create(title="Original Title", owner=self.owner)
+        self.board.members.add(self.member)
+
+        self.url = reverse("board-detail", kwargs={"board_id": self.board.id})
+
+    def test_owner_can_update_title_and_members(self):
+        """Owner can change title and replace the members list."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(
+            self.url,
+            {"title": "New Title", "members": [self.outsider.id]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], "New Title")
+        self.assertEqual(response.data["owner_data"]["id"], self.owner.id)
+        member_ids = [m["id"] for m in response.data["members_data"]]
+        self.assertEqual(member_ids, [self.outsider.id])
+
+    def test_member_can_also_update_board(self):
+        """A board member (not just the owner) is allowed to update it."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.patch(self.url, {"title": "Member Edit"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_outsider_gets_403(self):
+        """A user with no relation to the board cannot update it."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.patch(self.url, {"title": "Hacked"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_partial_update_title_only_keeps_members(self):
+        """Sending only `title` leaves existing members untouched."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(
+            self.url, {"title": "Only Title Changed"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        member_ids = [m["id"] for m in response.data["members_data"]]
+        self.assertEqual(member_ids, [self.member.id])
+
+    def test_invalid_member_id_returns_400(self):
+        """A non-existent user ID in `members` is rejected."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(self.url, {"members": [999999]}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

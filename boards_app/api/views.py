@@ -7,7 +7,7 @@ Views for board endpoints.
 
 # Third party
 from django.db.models import Q
-from rest_framework import generics, status
+from rest_framework import generics, status, mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -17,6 +17,7 @@ from .serializers import (
     BoardListSerializer,
     BoardCreateSerializer,
     BoardDetailSerializer,
+    BoardUpdateSerializer
 )
 from .permissions import IsBoardMemberOrOwner
 
@@ -44,10 +45,24 @@ class BoardListCreateView(generics.ListCreateAPIView):
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class BoardDetailView(generics.RetrieveAPIView):
-    """Handles GET /api/boards/{board_id}/ — board info (incl. members) plus its tasks."""
+class BoardDetailView(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    generics.GenericAPIView,
+):
+    """Handles GET (detail) and PATCH (update title/members) for /api/boards/{board_id}/."""
 
     queryset = Board.objects.all()
-    serializer_class = BoardDetailSerializer
     permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
     lookup_url_kwarg = "board_id"
+
+    def get_serializer_class(self):
+        if self.request.method == "PATCH":
+            return BoardUpdateSerializer
+        return BoardDetailSerializer
+
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def patch(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
