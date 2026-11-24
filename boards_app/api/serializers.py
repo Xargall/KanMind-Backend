@@ -12,6 +12,7 @@ from rest_framework import serializers
 # Local
 from ..models import Board
 from auth_app.api.serializers import PublicUserSerializer
+from tasks_app.api.serializers import TaskSerializer
 
 User = get_user_model()
 
@@ -41,13 +42,13 @@ class BoardListSerializer(serializers.ModelSerializer):
         return obj.members.count()
 
     def get_ticket_count(self, obj):
-        return 0
+        return obj.tasks.count()
 
     def get_tasks_to_do_count(self, obj):
-        return 0
+        return obj.tasks.filter(status="to-do").count()
 
     def get_tasks_high_prio_count(self, obj):
-        return 0
+        return obj.tasks.filter(priority="high").count()
 
 
 class BoardCreateSerializer(serializers.ModelSerializer):
@@ -83,7 +84,7 @@ class BoardDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "owner_id", "members", "tasks"]
 
     def get_tasks(self, obj):
-        return []
+        return TaskSerializer(obj.tasks.all(), many=True).data
 
 
 class BoardUpdateSerializer(serializers.ModelSerializer):

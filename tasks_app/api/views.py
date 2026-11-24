@@ -111,5 +111,10 @@ class CommentListCreateView(generics.ListCreateAPIView):
         serializer.save(task=task, author=self.request.user)
 
 
-class CommentDetailView:
-    pass
+class CommentDeleteView(generics.DestroyAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated, IsCommentCreator]
+    lookup_url_kwarg = "comment_id"
+
+    def get_queryset(self):
+        return Comment.objects.filter(task_id=self.kwargs["task_id"])

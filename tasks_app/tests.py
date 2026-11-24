@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 # Local
-from .models import Task
+from .models import Task, Comment
 from boards_app.models import Board
 
 User = get_user_model()
@@ -428,3 +428,182 @@ class TaskReviewingTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
+
+class CommentListCreateTests(APITestCase):
+    """Tests for GET/POST /api/tasks/{task_id}/comments/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner6@example.com", password="pass123", fullname="Owner6"
+        )
+        self.member = User.objects.create_user(
+            email="member6@example.com", password="pass123", fullname="Member6"
+        )
+        self.outsider = User.objects.create_user(
+            email="outsider6@example.com", password="pass123", fullname="Outsider6"
+        )
+
+        self.board = Board.objects.create(title="Comments Board", owner=self.owner)
+        self.board.members.add(self.member)
+
+        self.task = Task.objects.create(
+            board=self.board, title="Task With Comments", status="to-do", priority="low"
+        )
+
+        self.comment = Comment.objects.create(
+            task=self.task, author=self.member, content="Existing comment"
+        )
+
+        self.url = reverse("tasks-comments", kwargs={"task_id": self.task.id})
+
+    def test_list_requires_authentication(self):
+        """Anonymous requests are rejected."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_member_can_list_comments(self):
+        """A board member can list comments, author comes back as a full name string."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["author"], "Member6")
+
+    def test_outsider_gets_403_on_list(self):
+        """A user with no relation to the board cannot list its task's comments."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_nonexistent_task_gets_404_on_list(self):
+        """A task ID that doesn't exist returns 404, not 403."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("tasks-comments", kwargs={"task_id": 999999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_member_can_create_comment(self):
+        """A board member can create a comment; author is set from the request, not the body."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.url, {"content": "New comment"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["author"], "Owner6")
+        self.assertEqual(response.data["content"], "New comment")
+
+    def test_create_requires_authentication(self):
+        """Anonymous requests are rejected."""
+        response = self.client.post(self.url, {"content": "Anon"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_outsider_gets_403_on_create(self):
+        """A user with no relation to the board cannot comment on its tasks."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.post(self.url, {"content": "Hacked"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_nonexistent_task_gets_404_on_create(self):
+        """A task ID that doesn't exist returns 404, not 403."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("tasks-comments", kwargs={"task_id": 999999})
+        response = self.client.post(url, {"content": "Ghost"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_empty_content_returns_400(self):
+        """An empty content value is rejected."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.url, {"content": ""}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class CommentDeleteTests(APITestCase):
+    """Tests for DELETE /api/tasks/{task_id}/comments/{comment_id}/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner7@example.com", password="pass123", fullname="Owner7"
+        )
+        self.creator = User.objects.create_user(
+            email="creator7@example.com", password="pass123", fullname="Creator7"
+        )
+        self.member = User.objects.create_user(
+            email="member7@example.com", password="pass123", fullname="Member7"
+        )
+        self.outsider = User.objects.create_user(
+            email="outsider7@example.com", password="pass123", fullname="Outsider7"
+        )
+
+        self.board = Board.objects.create(title="Comment Delete Board", owner=self.owner)
+        self.board.members.add(self.creator, self.member)
+
+        self.task = Task.objects.create(
+            board=self.board, title="Task", status="to-do", priority="low"
+        )
+        self.other_task = Task.objects.create(
+            board=self.board, title="Other Task", status="to-do", priority="low"
+        )
+
+        self.comment = Comment.objects.create(
+            task=self.task, author=self.creator, content="To be deleted"
+        )
+
+        self.url = reverse(
+            "comment-delete",
+            kwargs={"task_id": self.task.id, "comment_id": self.comment.id},
+        )
+
+    def test_creator_can_delete_comment(self):
+        """The user who wrote the comment can delete it."""
+        self.client.force_authenticate(user=self.creator)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Comment.objects.filter(id=self.comment.id).exists())
+
+    def test_other_member_gets_403(self):
+        """A board member who didn't write the comment cannot delete it."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
+
+    def test_board_owner_who_is_not_creator_gets_403(self):
+        """Unlike task deletion, the board owner has no special right here — only the comment's author."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
+
+    def test_outsider_gets_403(self):
+        """A user unrelated to the board cannot delete the comment either."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_nonexistent_comment_gets_404(self):
+        """A comment ID that doesn't exist returns 404."""
+        self.client.force_authenticate(user=self.creator)
+        url = reverse(
+            "comment-delete", kwargs={"task_id": self.task.id, "comment_id": 999999}
+        )
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_comment_belonging_to_different_task_gets_404(self):
+        """A comment that exists but belongs to a different task is not reachable via this task_id."""
+        self.client.force_authenticate(user=self.creator)
+        url = reverse(
+            "comment-delete",
+            kwargs={"task_id": self.other_task.id, "comment_id": self.comment.id},
+        )
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unauthenticated_gets_401(self):
+        """Anonymous requests are rejected before the permission check even runs."""
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
