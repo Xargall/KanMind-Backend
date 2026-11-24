@@ -126,6 +126,7 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    """Serializes comments, with nested author object"""
 
     author = serializers.CharField(source="author.fullname", read_only=True)
 

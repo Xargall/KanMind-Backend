@@ -82,6 +82,8 @@ class TaskDetailView(mixins.DestroyModelMixin, generics.UpdateAPIView):
 
 
 class TaskAssignedToMeView(generics.ListAPIView):
+    """Lists tasks assigned to or reviewed by the current user (GET /api/tasks/assigned-to-me/)."""
+
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
 
@@ -92,6 +94,8 @@ class TaskAssignedToMeView(generics.ListAPIView):
 
 
 class TaskReviewingView(generics.ListAPIView):
+    """Lists tasks where the current user is reviewer (GET /api/tasks/reviewing/)."""
+
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
 
@@ -100,6 +104,8 @@ class TaskReviewingView(generics.ListAPIView):
 
 
 class CommentListCreateView(generics.ListCreateAPIView):
+    """Lists and creates comments on a task; only board members may access (GET/POST /api/tasks/{task_id}/comments/)."""
+
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated, IsTaskBoardMemberForComments]
 
@@ -112,6 +118,8 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
 
 class CommentDeleteView(generics.DestroyAPIView):
+    """Deletes a comment; only its author may do so (DELETE /api/tasks/{task_id}/comments/{comment_id}/)."""
+
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated, IsCommentCreator]
     lookup_url_kwarg = "comment_id"
