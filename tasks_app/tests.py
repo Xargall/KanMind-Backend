@@ -119,8 +119,6 @@ class TaskCreateTests(APITestCase):
             format="json",
         )
 
-        print(response.data)  # <- temporär
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 
@@ -212,3 +210,221 @@ class TaskUpdateTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TaskDeleteTests(APITestCase):
+    """Tests for DELETE /api/tasks/{task_id}/."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner3@example.com", password="pass123", fullname="Owner3"
+        )
+        self.creator = User.objects.create_user(
+            email="creator3@example.com", password="pass123", fullname="Creator3"
+        )
+        self.member = User.objects.create_user(
+            email="member3@example.com", password="pass123", fullname="Member3"
+        )
+        self.outsider = User.objects.create_user(
+            email="outsider3@example.com", password="pass123", fullname="Outsider3"
+        )
+
+        self.board = Board.objects.create(title="Delete Board", owner=self.owner)
+        self.board.members.add(self.creator, self.member)
+
+        self.task = Task.objects.create(
+            board=self.board,
+            title="Task To Delete",
+            status="to-do",
+            priority="low",
+            created_by=self.creator,
+        )
+
+        self.url = reverse("task-detail", kwargs={"task_id": self.task.id})
+
+    def test_creator_can_delete_task(self):
+        """The user who created the task can delete it."""
+        self.client.force_authenticate(user=self.creator)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Task.objects.filter(id=self.task.id).exists())
+
+    def test_board_owner_can_delete_task(self):
+        """The board owner can delete a task even if they didn't create it."""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Task.objects.filter(id=self.task.id).exists())
+
+    def test_member_who_is_not_creator_gets_403(self):
+        """A board member who neither created the task nor owns the board cannot delete it."""
+        self.client.force_authenticate(user=self.member)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Task.objects.filter(id=self.task.id).exists())
+
+    def test_outsider_gets_403(self):
+        """A user with no relation to the board cannot delete its tasks."""
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Task.objects.filter(id=self.task.id).exists())
+
+    def test_nonexistent_task_gets_404(self):
+        """A task ID that doesn't exist returns 404, not 403."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("task-detail", kwargs={"task_id": 999999})
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unauthenticated_gets_401(self):
+        """Anonymous requests are rejected before the permission check even runs."""
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(Task.objects.filter(id=self.task.id).exists())
+
+
+class TaskAssignedToMeTests(APITestCase):
+    """Tests for GET /api/tasks/assigned-to-me/."""
+
+    def setUp(self):
+        self.url = reverse("assigned-tasks")
+
+        self.owner = User.objects.create_user(
+            email="owner4@example.com", password="pass123", fullname="Owner4"
+        )
+        self.assignee_user = User.objects.create_user(
+            email="assignee4@example.com", password="pass123", fullname="Assignee4"
+        )
+        self.reviewer_user = User.objects.create_user(
+            email="reviewer4@example.com", password="pass123", fullname="Reviewer4"
+        )
+        self.bystander = User.objects.create_user(
+            email="bystander4@example.com", password="pass123", fullname="Bystander4"
+        )
+
+        self.board = Board.objects.create(title="Assigned Board", owner=self.owner)
+        self.board.members.add(self.assignee_user, self.reviewer_user, self.bystander)
+
+        self.assigned_task = Task.objects.create(
+            board=self.board,
+            title="Task I'm assigned to",
+            status="to-do",
+            priority="medium",
+            assignee=self.assignee_user,
+        )
+        self.reviewed_task = Task.objects.create(
+            board=self.board,
+            title="Task I'm reviewing",
+            status="to-do",
+            priority="medium",
+            reviewer=self.reviewer_user,
+        )
+        self.unrelated_task = Task.objects.create(
+            board=self.board,
+            title="Task with no relation to anyone special",
+            status="to-do",
+            priority="low",
+        )
+
+    def test_requires_authentication(self):
+        """Anonymous requests are rejected."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_returns_tasks_where_user_is_assignee(self):
+        """A task where the user is the assignee shows up."""
+        self.client.force_authenticate(user=self.assignee_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task_ids = [task["id"] for task in response.data]
+        self.assertIn(self.assigned_task.id, task_ids)
+
+    def test_returns_tasks_where_user_is_reviewer(self):
+        """A task where the user is the reviewer shows up too, not just as assignee."""
+        self.client.force_authenticate(user=self.reviewer_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task_ids = [task["id"] for task in response.data]
+        self.assertIn(self.reviewed_task.id, task_ids)
+
+    def test_user_with_no_relation_gets_empty_list(self):
+        """A user who is neither assignee nor reviewer on any task gets an empty list, not an error."""
+
+
+class TaskReviewingTests(APITestCase):
+    """Tests for GET /api/tasks/reviewing/."""
+
+    def setUp(self):
+        self.url = reverse("reviewed-tasks")
+
+        self.owner = User.objects.create_user(
+            email="owner5@example.com", password="pass123", fullname="Owner5"
+        )
+        self.reviewer_user = User.objects.create_user(
+            email="reviewer5@example.com", password="pass123", fullname="Reviewer5"
+        )
+        self.assignee_only_user = User.objects.create_user(
+            email="assignee5@example.com", password="pass123", fullname="Assignee5"
+        )
+        self.bystander = User.objects.create_user(
+            email="bystander5@example.com", password="pass123", fullname="Bystander5"
+        )
+
+        self.board = Board.objects.create(title="Reviewing Board", owner=self.owner)
+        self.board.members.add(
+            self.reviewer_user, self.assignee_only_user, self.bystander
+        )
+
+        self.reviewed_task = Task.objects.create(
+            board=self.board,
+            title="Task I'm reviewing",
+            status="to-do",
+            priority="medium",
+            reviewer=self.reviewer_user,
+        )
+        self.assigned_only_task = Task.objects.create(
+            board=self.board,
+            title="Task I'm only assigned to",
+            status="to-do",
+            priority="medium",
+            assignee=self.assignee_only_user,
+        )
+
+    def test_requires_authentication(self):
+        """Anonymous requests are rejected."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_returns_tasks_where_user_is_reviewer(self):
+        """A task where the user is the reviewer shows up."""
+        self.client.force_authenticate(user=self.reviewer_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task_ids = [task["id"] for task in response.data]
+        self.assertIn(self.reviewed_task.id, task_ids)
+
+    def test_assignee_only_task_is_excluded(self):
+        """A task where the user is only the assignee, not the reviewer, does not show up here."""
+        self.client.force_authenticate(user=self.assignee_only_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task_ids = [task["id"] for task in response.data]
+        self.assertNotIn(self.assigned_only_task.id, task_ids)
+
+    def test_user_with_no_relation_gets_empty_list(self):
+        """A user who is not a reviewer on any task gets an empty list, not an error."""
+        self.client.force_authenticate(user=self.bystander)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])

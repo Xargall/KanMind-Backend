@@ -50,6 +50,12 @@ class Task(models.Model):
         blank=True,
         related_name="reviewing_tasks",
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_tasks",
+    )
     due_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
