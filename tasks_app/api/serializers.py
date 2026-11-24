@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 # Local
-from ..models import Task
+from ..models import Task, Comment
 from auth_app.api.serializers import PublicUserSerializer
 
 User = get_user_model()
@@ -123,3 +123,12 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class CommentSerializer(serializers.ModelSerializer):
+
+    author = serializers.CharField(source="author.fullname", read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "created_at", "author", "content"]

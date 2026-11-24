@@ -14,9 +14,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 # Local
-from ..models import Task
-from .permissions import IsTaskBoardMember, IsTaskCreatorOrBoardOwner
-from .serializers import TaskCreateSerializer, TaskSerializer, TaskUpdateSerializer
+from ..models import Task, Comment
+from .permissions import (
+    IsTaskBoardMember,
+    IsTaskCreatorOrBoardOwner,
+    IsCommentCreator,
+    IsTaskBoardMemberForComments,
+)
+from .serializers import (
+    TaskCreateSerializer,
+    TaskSerializer,
+    TaskUpdateSerializer,
+    CommentSerializer,
+)
 from boards_app.models import Board
 
 
@@ -87,3 +97,19 @@ class TaskReviewingView(generics.ListAPIView):
 
     def get_queryset(self):
         return Task.objects.filter(reviewer=self.request.user)
+
+
+class CommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated, IsTaskBoardMemberForComments]
+
+    def get_queryset(self):
+        return Comment.objects.filter(task_id=self.kwargs["task_id"])
+
+    def perform_create(self, serializer):
+        task = get_object_or_404(Task, pk=self.kwargs["task_id"])
+        serializer.save(task=task, author=self.request.user)
+
+
+class CommentDetailView:
+    pass
