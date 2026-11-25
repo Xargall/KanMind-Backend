@@ -15,7 +15,6 @@ from django.core.validators import validate_email
 from django.contrib.auth import get_user_model
 
 # Local
-
 from .serializers import RegistrationSerializer, LoginSerializer, PublicUserSerializer
 
 User = get_user_model()

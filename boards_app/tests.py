@@ -35,6 +35,9 @@ class BoardListCreateTests(APITestCase):
 
         self.board = Board.objects.create(title="Existing Board", owner=self.owner)
         self.board.members.add(self.member)
+        
+    def test_str_returns_title(self):
+        self.assertEqual(str(self.board), self.board.title)
 
     def test_list_requires_authentication(self):
         """Anonymous requests are rejected."""

@@ -145,6 +145,9 @@ class TaskUpdateTests(APITestCase):
 
         self.url = reverse("task-detail", kwargs={"task_id": self.task.id})
 
+    def test_str_returns_title(self):
+        self.assertEqual(str(self.task), self.task.title)
+
     def test_member_can_update_task(self):
         """A board member can update a task on that board."""
         self.client.force_authenticate(user=self.member)
@@ -357,6 +360,11 @@ class TaskAssignedToMeTests(APITestCase):
 
     def test_user_with_no_relation_gets_empty_list(self):
         """A user who is neither assignee nor reviewer on any task gets an empty list, not an error."""
+        self.client.force_authenticate(user=self.bystander)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
 
 
 class TaskReviewingTests(APITestCase):
@@ -428,6 +436,7 @@ class TaskReviewingTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
+
 
 class CommentListCreateTests(APITestCase):
     """Tests for GET/POST /api/tasks/{task_id}/comments/."""
@@ -534,7 +543,9 @@ class CommentDeleteTests(APITestCase):
             email="outsider7@example.com", password="pass123", fullname="Outsider7"
         )
 
-        self.board = Board.objects.create(title="Comment Delete Board", owner=self.owner)
+        self.board = Board.objects.create(
+            title="Comment Delete Board", owner=self.owner
+        )
         self.board.members.add(self.creator, self.member)
 
         self.task = Task.objects.create(

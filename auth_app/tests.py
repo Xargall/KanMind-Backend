@@ -129,6 +129,19 @@ class UserManagerTests(TestCase):
         )
         self.assertEqual(str(user), "X Y")
 
+    def test_create_user_without_email_raises_error(self):
+        with self.assertRaises(ValueError):
+            User.objects.create_user(email="", password="pass123", fullname="No Email")
+
+    def test_create_superuser_rejects_is_superuser_false(self):
+        with self.assertRaises(ValueError):
+            User.objects.create_superuser(
+                email="admin3@example.com",
+                password="pass",
+                fullname="Admin3",
+                is_superuser=False,
+            )
+
 
 class EmailCheckTests(APITestCase):
     """Tests for GET /api/email-check/."""

@@ -38,6 +38,7 @@ class TaskCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """Checks board membership manually (no permission class), then returns the full TaskSerializer representation."""
         board = get_object_or_404(Board, pk=request.data.get("board"))
 
         is_member = (
@@ -65,6 +66,8 @@ class TaskDetailView(mixins.DestroyModelMixin, generics.UpdateAPIView):
     lookup_url_kwarg = "task_id"
 
     def get_permissions(self):
+        """Uses the stricter creator-or-owner permission for DELETE, the member permission otherwise."""
+
         if self.request.method == "DELETE":
             return [IsAuthenticated(), IsTaskCreatorOrBoardOwner()]
         return [IsAuthenticated(), IsTaskBoardMember()]
@@ -78,6 +81,7 @@ class TaskDetailView(mixins.DestroyModelMixin, generics.UpdateAPIView):
         return Response(TaskSerializer(instance).data)
 
     def delete(self, request, *args, **kwargs):
+        """Delegates to DestroyModelMixin.destroy(), which applies the DELETE permission above."""
         return self.destroy(request, *args, **kwargs)
 
 
@@ -113,6 +117,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
         return Comment.objects.filter(task_id=self.kwargs["task_id"])
 
     def perform_create(self, serializer):
+        """Sets task and author server-side; the client cannot set either."""
         task = get_object_or_404(Task, pk=self.kwargs["task_id"])
         serializer.save(task=task, author=self.request.user)
 
@@ -125,4 +130,5 @@ class CommentDeleteView(generics.DestroyAPIView):
     lookup_url_kwarg = "comment_id"
 
     def get_queryset(self):
+        """Scoped by task_id too, so a comment_id from another task correctly returns 404."""
         return Comment.objects.filter(task_id=self.kwargs["task_id"])
