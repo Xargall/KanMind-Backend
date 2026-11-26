@@ -5,10 +5,8 @@ tasks_app.api.urls
 URL routes for the tasks_app API endpoints.
 """
 
-# Third-party
 from django.urls import path
 
-# Local
 from .views import (
     TaskCreateView,
     TaskDetailView,

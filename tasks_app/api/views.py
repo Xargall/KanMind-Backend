@@ -5,7 +5,6 @@ tasks_app.api.views
 Views for the task endpoints.
 """
 
-# Third party
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework import generics, status, mixins
@@ -13,7 +12,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-# Local
 from ..models import Task, Comment
 from .permissions import (
     IsTaskBoardMember,

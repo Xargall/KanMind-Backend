@@ -5,11 +5,9 @@ tasks_app.models
 Task model: a card on a Board, with status/priority and optional assignee/reviewer.
 """
 
-# Third party
 from django.conf import settings
 from django.db import models
 
-# Local
 from boards_app.models import Board
 
 
@@ -72,3 +70,7 @@ class Comment(models.Model):
     )
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        preview = self.content[:40] + ("…" if len(self.content) > 40 else "")
+        return f"{self.author}: {preview}"

@@ -28,6 +28,8 @@ A Django REST Framework backend for **KanMind**, a Kanban board application simi
 
 ### Installation
 
+**macOS / Linux**
+
 ```bash
 # Clone the repository
 git clone https://github.com/Xargall/KanMind-Backend.git
@@ -40,6 +42,38 @@ source env/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 ```
+
+**Windows (PowerShell)**
+
+```powershell
+# Clone the repository
+git clone https://github.com/Xargall/KanMind-Backend.git
+cd KanMind-Backend
+
+# Create and activate a virtual environment
+python -m venv env
+env\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Windows (cmd.exe)**
+
+```bat
+:: Clone the repository
+git clone https://github.com/Xargall/KanMind-Backend.git
+cd KanMind-Backend
+
+:: Create and activate a virtual environment
+python -m venv env
+env\Scripts\activate.bat
+
+:: Install dependencies
+pip install -r requirements.txt
+```
+
+> On Windows, if `Activate.ps1` is blocked, run PowerShell as administrator once and execute `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then try again.
 
 ### Environment Variables
 
@@ -79,19 +113,19 @@ All endpoints are prefixed with `/api/`. Authentication uses a token header:
 Authorization: Token <your-token>
 ```
 
-| Area     | Endpoint                                         | Method              |
-|----------|---------------------------------------------------|----------------------|
-| Auth     | `/registration/`                                   | POST                 |
-| Auth     | `/login/`                                          | POST                 |
-| Auth     | `/email-check/?email=<email>`                      | GET                  |
-| Boards   | `/boards/`                                         | GET, POST            |
-| Boards   | `/boards/{board_id}/`                              | GET, PATCH, DELETE   |
-| Tasks    | `/tasks/`                                          | POST                 |
-| Tasks    | `/tasks/{task_id}/`                                | PATCH, DELETE        |
-| Tasks    | `/tasks/assigned-to-me/`                           | GET                  |
-| Tasks    | `/tasks/reviewing/`                                | GET                  |
-| Comments | `/tasks/{task_id}/comments/`                       | GET, POST            |
-| Comments | `/tasks/{task_id}/comments/{comment_id}/`          | DELETE               |
+| Area     | Endpoint                                  | Method             |
+| -------- | ----------------------------------------- | ------------------ |
+| Auth     | `/registration/`                          | POST               |
+| Auth     | `/login/`                                 | POST               |
+| Auth     | `/email-check/?email=<email>`             | GET                |
+| Boards   | `/boards/`                                | GET, POST          |
+| Boards   | `/boards/{board_id}/`                     | GET, PATCH, DELETE |
+| Tasks    | `/tasks/`                                 | POST               |
+| Tasks    | `/tasks/{task_id}/`                       | PATCH, DELETE      |
+| Tasks    | `/tasks/assigned-to-me/`                  | GET                |
+| Tasks    | `/tasks/reviewing/`                       | GET                |
+| Comments | `/tasks/{task_id}/comments/`              | GET, POST          |
+| Comments | `/tasks/{task_id}/comments/{comment_id}/` | DELETE             |
 
 ## Running Tests
 

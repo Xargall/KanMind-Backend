@@ -5,13 +5,11 @@ boards_app.api.views
 Views for board endpoints.
 """
 
-# Third party
 from django.db.models import Q
 from rest_framework import generics, status, mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-# Local
 from ..models import Board
 from .serializers import (
     BoardListSerializer,

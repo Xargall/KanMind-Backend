@@ -5,7 +5,6 @@ boards_app.api.permissions
 Permission classes for board endpoints.
 """
 
-# Third party
 from rest_framework.permissions import BasePermission
 
 

@@ -5,7 +5,6 @@ auth_app.api.views
 Views for the registration endpoint.
 """
 
-# Third party
 from rest_framework import generics, status, permissions
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
@@ -14,7 +13,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.contrib.auth import get_user_model
 
-# Local
 from .serializers import RegistrationSerializer, LoginSerializer, PublicUserSerializer
 
 User = get_user_model()

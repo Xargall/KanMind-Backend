@@ -5,7 +5,6 @@ auth_app.api.serializers
 Serializers for the registration endpoint.
 """
 
-# Third party
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework import serializers
 
