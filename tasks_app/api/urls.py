@@ -30,7 +30,7 @@ urlpatterns = [
         name="tasks-comments",
     ),
     path(
-        "tasks/<int:task_id>/comments/<int:comment_id>",
+        "tasks/<int:task_id>/comments/<int:comment_id>/",
         CommentDeleteView.as_view(),
         name="comment-delete",
     ),
